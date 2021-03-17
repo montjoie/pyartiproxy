@@ -1,0 +1,7 @@
+[main]
+default = agl
+
+[agl]
+token = artifactorialtoken
+url = http://x.x.x.x:port
+user = agluser
