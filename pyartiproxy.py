@@ -44,13 +44,6 @@ if len(sys.argv) > 1:
 
 form = cgi.FieldStorage()
 
-if form.getvalue("directory") == None:
-    print("Content-type: text/html\n")
-    print("\n")
-    print('Missing directory')
-    print("\n")
-    bad_request
-    sys.exit(0)
 if form.getvalue("filename") == None:
     print("Content-type: text/html\n")
     print("\n")
@@ -59,7 +52,7 @@ if form.getvalue("filename") == None:
     bad_request
     sys.exit(0)
 
-basedir = "/var/www/html/%s/" % form.getvalue("directory")
+basedir = "/var/www/html/"
 if not os.path.isdir(basedir):
     try:
         os.makedirs(basedir)
