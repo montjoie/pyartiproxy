@@ -1,0 +1,71 @@
+---
+name: basic
+on:  # yamllint disable-line rule:truthy rule:line-length
+  push:
+  pull_request:
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, "3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          #pip install -e "."
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=16 --max-line-length=127 --statistics
+  check-upload:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: install apache
+        run: sudo apt-get -y install apache2 python3 python3-requests curl
+      - run: sudo a2dismod mpm_event
+      - run: sudo a2enmod mpm_prefork
+      - run: sudo a2enmod cgi
+      - run: sudo a2enconf serve-cgi-bin
+      - run: sed -i 's,/artifacts/home/agl,/cgi-bin/fakendpoint.py,' pyartiproxy.py
+      - run: sudo cp pyartiproxy.py /usr/lib/cgi-bin/
+      - run: sudo cp fakendpoint.py /usr/lib/cgi-bin/
+      - run: sudo chmod 755 /usr/lib/cgi-bin/*.py
+      - run: sudo /etc/init.d/apache2 restart
+
+      - run: sudo cp pyartiproxy.ini.ci /etc/pyartiproxy.ini
+      - run: sudo chmod 644 /etc/pyartiproxy.ini
+      - run: cp pyartiproxy.ini.ci pyartiproxy.ini
+      - run: sudo chown www-data /var/www/html
+
+      - name: Try an upload
+        run: curl -F "directory=tutu" -F "filename=toto" -F "data=@readme.md" http://127.0.0.1:80/cgi-bin/pyartiproxy.py
+      - name: Try an upload utf8
+        run: curl -F "directory=tutu" -F "filename=totoé" -F "data=@readme.md" http://127.0.0.1:80/cgi-bin/pyartiproxy.py
+      - name: Try an upload utf8
+        run: curl -F "directory=tutué" -F "filename=totoè" -F "data=@readme.md" http://127.0.0.1:80/cgi-bin/pyartiproxy.py
+      - name: Generate a binary file
+        run: dd if=/dev/urandom of=binary.bin bs=1K count=4
+      - name: Try a binary
+        run: curl -F "directory=binary" -F "filename=binary.bin" -F "data=@binary.bin" http://127.0.0.1:80/cgi-bin/pyartiproxy.py
+      - name: Check /tmp
+        run: ls -l /tmp
+      - name: Check /var/www/html/
+        run: ls -l /var/www/html/
+      - name: dump apache log
+        run: cat /var/log/apache2/*log
+      - name: dump apache log and fail
+        run: grep error /var/log/apache2/*log && exit 1 || exit 0
+      - name: Try to build the dockerfile
+        run: docker-compose build
+      - name: Try to build the dockerfile with bullseye
+        run: sed -i 's,buster,bullseye,' Dockerfile && docker-compose build

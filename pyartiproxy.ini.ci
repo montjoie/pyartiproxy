@@ -1,0 +1,7 @@
+[main]
+default = test
+
+[test]
+token = artifactorialtoken
+url = http://127.0.0.1
+user = test
