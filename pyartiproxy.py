@@ -7,12 +7,6 @@ import requests
 import sys
 
 
-def bad_request():
-    print('Status: 400 Bad Request')
-    print("\n")
-    sys.exit(0)
-
-
 def int_error():
     print('Status: 500 Internal Server Error')
     print("\n")
@@ -48,28 +42,65 @@ if len(sys.argv) > 1:
 form = cgi.FieldStorage()
 
 if form.getvalue("filename") is None:
-    print("Content-type: text/html\n")
+    print("Content-type: text/html")
+    print('Status: 400 Bad Request')
     print("\n")
     print('Missing filename')
     print("\n")
-    bad_request
     sys.exit(0)
 
+filename = form.getvalue("filename")
+if len(filename) == 0:
+    filename = "emptyfilename"
+idx = filename.find('/')
+filename.lstrip('\x00')
+if idx != -1:
+    print("Content-type: text/plain")
+    print('Status: 400 Bad Request')
+    print("\n")
+    print(f'Filename have a / {filename}\n')
+    print("\n")
+    sys.exit(0)
+
+# TODO validate [0-9a-zA-Z_-]*
+
 basedir = "/var/www/html/"
+basedir = "/tmp/"
 if not os.path.isdir(basedir):
     try:
         os.makedirs(basedir)
     except:
-        print("Content-type: text/html\n")
+        print("Content-type: text/html")
+        print('Status: 400 Bad Request')
         print("\n")
         print('Bad directory')
         print("\n")
-        bad_request
         sys.exit(0)
 
-f = open("%s/%s" % (basedir, form.getvalue("filename")), 'wb')
-f.write(form.getvalue("data"))
+data = form.getvalue("data")
+if data is None:
+    print("Content-type: text/html")
+    print('Status: 400 Bad Request')
+    print("\n")
+    print('Missing data')
+    print("\n")
+    sys.exit(0)
+
+f = open(f"{basedir}/{filename}", 'wb')
+f.write(data)
 f.close()
+try:
+    f = open(f"{basedir}/{filename}", 'wb')
+    f.write(data)
+    f.close()
+except:
+    print("Content-type: text/html")
+    print('Status: 400 Bad Request')
+    print("\n")
+    print(f'Fail to open {basedir}/{filename}XXX')
+    print("\n")
+    sys.exit(0)
+
 print("Status: 200 OK\n")
 print("Content-type: text/html\n")
 print("\n")
@@ -79,8 +110,8 @@ headers = {
     }
 files = {
     "path": (
-        form.getvalue("filename"),
-        open("%s/%s" % (basedir, form.getvalue("filename")), 'rb')
+        filename,
+        open(f"{basedir}/{filename}", 'rb')
         )
 }
 url = ARTI_URL + "/artifacts/home/agl"
